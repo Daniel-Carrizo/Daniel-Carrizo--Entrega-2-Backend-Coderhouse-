@@ -1,96 +1,70 @@
-const fs = require('fs');
+const fs = require('fs/promises'); // Import the promises version of the fs module
 
 class ProductManager {
-    static id = 0;
+  constructor() {
+    this.products = [];
+  }
 
-    constructor(filePath = 'products.json') {
-        this.path = filePath;
-        this.products = this.readDataFromFile();
+  static id = 0;
+
+  async addProduct(title, description, price, image, code, stock) {
+    ProductManager.id++;
+    this.products.push({ title, description, price, image, code, stock, id: ProductManager.id });
+
+    await this.writeToFile(); // Save products to file after adding a new product
+  }
+
+  async getProducts() {
+    await this.readFromFile(); // Read products from file before returning
+    return this.products;
+  }
+
+  async getProductById(id) {
+    await this.readFromFile(); // Read products from file before searching
+
+    const foundProduct = this.products.find((product) => product.id === id);
+
+    if (!foundProduct) {
+      console.log('Not found');
+    } else {
+      console.log('Exists');
     }
+  }
 
-    validateProperty = (property, propertyName) => {
-        if (!property) {
-            throw new Error(`Invalid ${propertyName}. ${propertyName} must be provided.`);
-        }
-    };
+  async writeToFile() {
+    try {
+      await fs.writeFile('products.json', JSON.stringify(this.products, null, 2));
+    } catch (error) {
+      console.error('Error writing to file:', error.message);
+    }
+  }
 
-    readDataFromFile = () => {
-        try {
-            return JSON.parse(fs.readFileSync(this.path, 'utf8'));
-        } catch (error) {
-            return [];
-        }
-    };
-
-    writeDataToFile = (data) => {
-        fs.writeFileSync(this.path, JSON.stringify(data, null, 2), 'utf8');
-    };
-
-    addProduct = (title, description, price, thumbnail, code, stock) => {
-        this.validateProperty(title, 'title');
-        this.validateProperty(description, 'description');
-        this.validateProperty(price, 'price');
-        this.validateProperty(thumbnail, 'thumbnail');
-        this.validateProperty(code, 'code');
-        this.validateProperty(stock, 'stock');
-
-        if (this.products.some((product) => product.code === code)) {
-            throw new Error('Product with the same code already exists.');
-        }
-
-        ProductManager.id++;
-        const newProduct = { title, description, price, thumbnail, code, stock, id: ProductManager.id };
-        this.products.push(newProduct);
-        this.writeDataToFile(this.products);
-    };
-
-    getProducts = () => this.products;
-
-    getProductById = (id) => {
-        const product = this.products.find((producto) => producto.id === id);
-        if (!product) {
-            throw new Error('Product not found');
-        }
-        return product;
-    };
-
-    updateProduct = (id, updatedProduct) => {
-        const index = this.products.findIndex((product) => product.id === id);
-
-        if (index !== -1) {
-            this.products[index] = { ...this.products[index], ...updatedProduct, id };
-            this.writeDataToFile(this.products);
-        } else {
-            throw new Error('Product not found');
-        }
-    };
-
-    deleteProduct = (id) => {
-        const updatedProducts = this.products.filter((product) => product.id !== id);
-
-        if (updatedProducts.length === this.products.length) {
-            throw new Error('Product not found');
-        }
-
-        this.writeDataToFile(updatedProducts);
-    };
+  async readFromFile() {
+    try {
+      const data = await fs.readFile('products.json', 'utf-8');
+      this.products = JSON.parse(data);
+    } catch (error) {
+      // If the file doesn't exist or an error occurs, it will be handled here
+      if (error.code === 'ENOENT') {
+        console.log('File not found. Creating a new one.');
+      } else {
+        console.error('Error reading from file:', error.message);
+      }
+    }
+  }
 }
 
-// Example usage
+// Create an instance of ProductManager
 const productManager = new ProductManager();
 
-console.log('Initial Products:', productManager.getProducts());
+// Example usage
+(async () => {
+  await productManager.addProduct('titulo1', 'descripcion1', 1000, 'imagen1', 'abc123', 5);
+  await productManager.addProduct('titulo2', 'descripcion2', 1000, 'imagen2', 'abc123', 5);
 
-productManager.addProduct('test product', 'This is a test product', 200, 'No image', 'abc123', 25);
+  const products = await productManager.getProducts();
+  console.log(products);
 
-console.log('Products after adding:', productManager.getProducts());
-
-console.log('Product by Id:', productManager.getProductById(1));
-
-productManager.updateProduct(1, { price: 250 });
-
-console.log('Products after update:', productManager.getProducts());
-
-productManager.deleteProduct(1);
-
-console.log('Products after delete:', productManager.getProducts());
+  // Check if a product with a specific ID exists
+  await productManager.getProductById(1); // Assuming you want to check for product with ID 1
+})();
